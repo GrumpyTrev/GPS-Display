@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="tvs.example.serviceprototype"
+    android:versionCode="1"
+    android:versionName="1.0" >
+
+    <uses-sdk
+        android:minSdkVersion="15"
+        android:targetSdkVersion="18" />
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/icon"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        
+        <service android:name="tvs.example.serviceprototype.GPSInterfaceService"
+            android:permission="android.permission.ACCESS_FINE_LOCATION" />
+        
+        <!-- This receiver defines the app widget and the broadcasts it receives -->
+        <receiver
+            android:name="tvs.example.serviceprototype.TrackerControlWidgetProvider"
+            android:label="GPS Service Prototype" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="tvs.example.serviceprototype.BROADCAST_LOCATION" />
+                <action android:name="tvs.example.serviceprototype.BROADCAST_STATUS" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tracker_control_appwidget_info" />
+        </receiver>
+        
+        <activity
+            android:name="tvs.example.serviceprototype.TrackerControlDialogue"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+ 
+    </application>
+
+</manifest>
