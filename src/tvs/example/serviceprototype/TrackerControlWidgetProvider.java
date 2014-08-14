@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import tvs.example.serviceprototype.GPSInterfaceService.TrackingState;
-import tvs.example.serviceprototype.GPSInterfaceService.ProviderState;
 import tvs.example.serviceprototype.TrackerServiceManager.TrackingLocation;
 import tvs.example.serviceprototype.TrackingStatus;
 import uk.me.jstott.jcoord.LatLng;
@@ -129,6 +128,7 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 			 
 			 // Convert to GB OS
 			 LatLng receivedLatLong = new LatLng( receivedLocation.getLatitude(), receivedLocation.getLongitude() );
+			 receivedLatLong.toOSGB36();
 			 refString = toEightFigureString( receivedLatLong.toOSRef() );
 			 
 			 accuracyString = String.format( "%2.0fm", receivedLocation.getAccuracy() );
@@ -238,8 +238,8 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 		  
 		  char secondLetter = ( char ) index;
 
-		  int e = ( int )Math.floor( ( gbRef.getEasting() - ( 100000 * hundredkmE ) ) / 10 );
-		  int n =  (int )Math.floor( ( gbRef.getNorthing() - ( 100000 * hundredkmN ) ) / 10 );
+		  int e = ( int )Math.round( ( gbRef.getEasting() - ( 100000 * hundredkmE ) ) / 10 );
+		  int n =  (int )Math.round( ( gbRef.getNorthing() - ( 100000 * hundredkmN ) ) / 10 );
 
 		  return String.format( "%C%C %04d %04d", firstLetter, secondLetter, e, n );
 	  }

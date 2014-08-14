@@ -3,6 +3,10 @@ use of this software including but not limited to: monetary loss,
 temporary paralysis, halitosis, spontaneous combustion, 
 road rash, and or premature hair loss.
 
+<h3>Changes in Version 1.2</h3>
+
+1) Lat/Lon converted from WGS84 to OSGB36 prior to conversion to OS Grid Reference.<br>
+
 <h3>Instructions for use</h3>
 
 Control tracking using 'Start Tracking' and 'Stop Tracking' options.<br>
