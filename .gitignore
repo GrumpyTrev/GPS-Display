@@ -1,0 +1,8 @@
+obj/
+rel/
+bin/
+/gen
+/libs
+
+.project
+.classpath
