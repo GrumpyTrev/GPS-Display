@@ -3,12 +3,16 @@ package tvs.example.serviceprototype;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.location.Location;
 import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
 import android.os.RemoteException;
 
 public class TrackerServiceManager 
@@ -39,7 +43,18 @@ public class TrackerServiceManager
 						synchronized( threadLock )
 						{
 	                    	log.info(  "onServiceConnected() {}", Thread.currentThread().getId() );
-							remoteBinding = ITrackerServiceRemote.Stub.asInterface( service );
+//							remoteBinding = ITrackerServiceRemote.Stub.asInterface( service );
+	                    	serviceMessenger = new Messenger( service );
+	                    	
+	                    	try
+	                    	{
+								serviceMessenger.send( Message.obtain( null, GPSInterfaceService.REQUESTSTATUS, 0, 0 ) );
+							} 
+	                    	catch ( RemoteException e ) 
+	                    	{
+								e.printStackTrace();
+							}
+	                    	
 							bound = true;
 						}
 						
@@ -56,12 +71,17 @@ public class TrackerServiceManager
 						synchronized ( threadLock )
 						{
 	                    	log.info(  "onServiceDisconnected() {}", Thread.currentThread().getId() );
+	                    	serviceMessenger = null;
 							bound = false;
 						}
 					}
 	            };
 	            
 	            context.bindService( new Intent( context, GPSInterfaceService.class ), serviceConnection, Context.BIND_AUTO_CREATE );
+	            
+	    	    receiver = new UpdateReceiver();
+	    	    IntentFilter filter = new IntentFilter( BROADCAST_STATUS );
+	    	    context.registerReceiver( receiver, filter );
 			}
 			else
 			{
@@ -87,7 +107,9 @@ public class TrackerServiceManager
 	              
 	    			context.unbindService( this.serviceConnection );
 
-	    			remoteBinding = null;
+	    		    context.unregisterReceiver( receiver );
+
+//	    			remoteBinding = null;
 	    			serviceConnection = null;
 	    			bound = false;
 	    		}
@@ -105,14 +127,14 @@ public class TrackerServiceManager
 	     {
 	    	 if ( bound == true )
 	         {
-	    		 try
+//	    		 try
 	    		 {
-	    			 remoteBinding.startLogging();
+//	    			 remoteBinding.startLogging();
 	    		 }
-	    		 catch ( RemoteException exception )
-	    		 {
-	    			 log.info( "startLogging() Could not start logger. {}", exception );
-	    		 }
+//	    		 catch ( RemoteException exception )
+	//    		 {
+	  //  			 log.info( "startLogging() Could not start logger. {}", exception );
+	    //		 }
 	         }
 	    	 else
 	    	 {
@@ -127,14 +149,14 @@ public class TrackerServiceManager
 	     {
 	    	 if ( bound == true )
 	         {
-	    		 try
+//	    		 try
 	    		 {
-	    			 remoteBinding.stopLogging();
+	//    			 remoteBinding.stopLogging();
 	    		 }
-	    		 catch ( RemoteException exception )
-	    		 {
-	    			 log.info( "stopLogging() Could not stop logger. {}", exception );
-	    		 }
+	//    		 catch ( RemoteException exception )
+	  //  		 {
+	    //			 log.info( "stopLogging() Could not stop logger. {}", exception );
+	    	//	 }
 	         }
 	    	 else
 	    	 {
@@ -147,19 +169,27 @@ public class TrackerServiceManager
 	{
 		GPSInterfaceService.TrackingState currentState = GPSInterfaceService.TrackingState.Unknown;
 		
+		log.info( "loggingState() getting status" );
+		
+		if ( receivedStatus != null )
+		{
+			currentState = receivedStatus.state;
+			log.info( "loggingState() returning {}", currentState.toString() );
+
+		}
 	     synchronized( threadLock )
 	     {
 	    	 if ( bound == true )
 	         {
-	    		 try
-	    		 {
-	    			 int state = remoteBinding.loggingState();
-	    			 currentState = GPSInterfaceService.TrackingState.values() [ state ];
+//	    		 try
+    		 {
+	//    			 int state = remoteBinding.loggingState();
+	//    			 currentState = GPSInterfaceService.TrackingState.values() [ state ];
 	    		 }
-	    		 catch ( RemoteException exception )
-	    		 {
-	    			 log.info( "loggingState() Could not get state. {}", exception );
-	    		 }
+	//    		 catch ( RemoteException exception )
+	  //  		 {
+	    //			 log.info( "loggingState() Could not get state. {}", exception );
+	    	//	 }
 	         }
 	    	 else
 	    	 {
@@ -178,14 +208,14 @@ public class TrackerServiceManager
 	     {
 	    	 if ( bound == true )
 	         {
-	    		 try
+//	    		 try
 	    		 {
-	    			 currentState = remoteBinding.getTrackingStatus();
+//	    			 currentState = remoteBinding.getTrackingStatus();
 	    		 }
-	    		 catch ( RemoteException exception )
-	    		 {
-	    			 log.info( "getTrackingStatus() Could not get status. {}", exception );
-	    		 }
+	//    		 catch ( RemoteException exception )
+	  //  		 {
+	    //			 log.info( "getTrackingStatus() Could not get status. {}", exception );
+	    	//	 }
 	         }
 	    	 else
 	    	 {
@@ -194,6 +224,19 @@ public class TrackerServiceManager
 	     }
 
 		return currentState;
+	}
+	
+	private class UpdateReceiver extends BroadcastReceiver
+	{
+		@Override
+		public void onReceive( Context context, Intent intent )
+		{
+			if ( intent.getAction() == BROADCAST_STATUS )
+			{
+				 receivedStatus = TrackingStatus.StatusFromIntent( intent );
+	    		 log.info( "onReceive() received BROADCAST_STATUS {}", receivedStatus.state.toString() );
+			}
+		}
 	}
 	
 	public static class TrackingLocation
@@ -219,10 +262,16 @@ public class TrackerServiceManager
 
 	private boolean bound = false;
 
-	private ITrackerServiceRemote remoteBinding = null;
+//	private ITrackerServiceRemote remoteBinding = null;
 	   
 	private ServiceConnection serviceConnection = null;
 
 	private Runnable postBindProcess = null;
 
+	/** Messenger used to send messages to the service  */
+	private Messenger serviceMessenger = null;
+	
+	private UpdateReceiver receiver = null;
+	
+	private TrackingStatus receivedStatus = null;
 }

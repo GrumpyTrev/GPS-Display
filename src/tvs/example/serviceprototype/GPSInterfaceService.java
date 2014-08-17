@@ -23,6 +23,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.Messenger;
 import android.os.Process;
 import android.os.RemoteException;
 
@@ -140,12 +141,12 @@ public class GPSInterfaceService extends Service implements LocationListener
 	 */
 	public IBinder onBind( Intent bindIntent ) 
 	{
-		return binder;
+		return new Messenger( serviceHandler ).getBinder();
 	}
 
 	/**
 	 * Called by the system every time a client explicitly starts the service by calling startService
-	 * Not processed
+	 * Not processed 
 	 * @param startIntent The intent that was passed to startService
 	 * @param flags Additional data about this start request. Currently either 0, START_FLAG_REDELIVERY, or START_FLAG_RETRY. 
 	 * @param startId A unique integer representing this specific request to start. Use with stopSelfResult(int)
@@ -364,6 +365,14 @@ public class GPSInterfaceService extends Service implements LocationListener
 
 				break;
 			}
+			
+			case REQUESTSTATUS:
+			{
+				// Broadcast state
+				BroadcastStatusChange();
+				
+				break;
+			}
 		}
 	}
 
@@ -568,10 +577,11 @@ public class GPSInterfaceService extends Service implements LocationListener
 	private static final String ServiceThreadName = "GPSInterfaceThread";
 	
 	/** Thread message codes */
-	private static final int STOPSERVICE = 1;
-	private static final int STARTLOGGING = 2;
-	private static final int STOPLOGGING = 3;
-	private static final int TURNONGPS=4;
+	public static final int STOPSERVICE = 1;
+	public static final int STARTLOGGING = 2;
+	public static final int STOPLOGGING = 3;
+	public static final int TURNONGPS = 4;
+	public static final int REQUESTSTATUS = 5;
 	
 	private static final float GPS_DISTANCE = 0F;
 	private static final long  GPS_INTERVAL = 0l;
