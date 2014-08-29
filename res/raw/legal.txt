@@ -6,6 +6,8 @@ road rash, and or premature hair loss.
 <h3>Changes in Version 1.2</h3>
 
 1) Lat/Lon converted from WGS84 to OSGB36 prior to conversion to OS Grid Reference.<br>
+2) AIDL interface removed and replaced with simpler message based interface.<br>
+3) Service is only started when instructed via the user interface.<br>
 
 <h3>Instructions for use</h3>
 
