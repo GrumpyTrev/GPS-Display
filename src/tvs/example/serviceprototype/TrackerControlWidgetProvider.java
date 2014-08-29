@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import tvs.example.serviceprototype.GPSInterfaceService.TrackingState;
-import tvs.example.serviceprototype.TrackerServiceManager.TrackingLocation;
 import tvs.example.serviceprototype.TrackingStatus;
 import uk.me.jstott.jcoord.LatLng;
 import uk.me.jstott.jcoord.OSRef;
@@ -23,15 +22,35 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 {
 	 public TrackerControlWidgetProvider()
 	 {
+		 	serviceReceiver.SetStatusReceiver(
+				new TrackerServiceManager.IStatusReceiver()
+				{
+					@Override
+					public void onStatusReceived( TrackingStatus status, Context context ) 
+					{
+						receivedStatus = status;
+						updateWidget( context );
+					}
+				} );
+		 	
+		 	serviceReceiver.SetLocationReceiver(
+				new TrackerServiceManager.ILocationReceiver()
+				{
+					@Override
+					public void onLocationReceived( Location location, Context context ) 
+					{
+						 receivedLocation = location;
+						updateWidget( context );
+					}
+				} );
+
 	 }
 	   
 	 @Override
 	 public void onEnabled(Context context)
 	 {
 		 log.info( "onEnabled()" );
-
-		 context.startService( new Intent(  context, GPSInterfaceService.class ) );
-	
+		 
 	     super.onEnabled( context);
 	 }
 
@@ -40,8 +59,6 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 	 {
 		 log.info( "onDisabled()" );
 		
-		 context.stopService( new Intent(  context, GPSInterfaceService.class ) );
-		 
 		 super.onDisabled( context );
 	 }
 
@@ -74,34 +91,25 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 			 controlIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			 context.startActivity( controlIntent );
 			 
-			 RemoteViews remoteView = buildLayout( context );
-
-			 AppWidgetManager.getInstance( context ).updateAppWidget( 
-					 new ComponentName (context, TrackerControlWidgetProvider.class), remoteView );
+			 updateWidget( context );
 		 }
-		 else if ( action == TrackerServiceManager.BROADCAST_LOCATION )
+		 else
 		 {
-			 receivedLocation = TrackingLocation.LocationFromIntent( intent );
-			 
-			 RemoteViews remoteView = buildLayout( context );
-
-			 AppWidgetManager.getInstance( context ).updateAppWidget( 
-					 new ComponentName (context, TrackerControlWidgetProvider.class), remoteView );
-
+			 serviceReceiver.onReceive( context, intent );
 		 }
-		 else if ( action == TrackerServiceManager.BROADCAST_STATUS )
-		 {
-			 receivedStatus = TrackingStatus.StatusFromIntent( intent );
-			 
-			 RemoteViews remoteView = buildLayout( context );
 
-			 AppWidgetManager.getInstance( context ).updateAppWidget( 
-					 new ComponentName (context, TrackerControlWidgetProvider.class), remoteView );
-
-		 }
 		 super.onReceive( context, intent );
 	   }
 
+	 private void updateWidget( Context contextForWidget )
+	 {
+		 RemoteViews remoteView = buildLayout( contextForWidget );
+
+		 AppWidgetManager.getInstance( contextForWidget ).updateAppWidget( 
+				 new ComponentName (contextForWidget, TrackerControlWidgetProvider.class), remoteView );
+	 }
+	 
+	 
 	 /**
 	  * Build a RemoteViews with all the required intents and text settings
 	  * @param context - The Context within which the provider is running
@@ -252,4 +260,6 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 	 private static Location receivedLocation = null;
 	 
 	 private static TrackingStatus receivedStatus = null;
+	 
+	 private final TrackerServiceManager.UpdateReceiver serviceReceiver = new TrackerServiceManager.UpdateReceiver();
 }

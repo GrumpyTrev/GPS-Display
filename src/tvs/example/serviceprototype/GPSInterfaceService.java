@@ -78,17 +78,6 @@ public class GPSInterfaceService extends Service implements LocationListener
 		gpsLocationManager = ( LocationManager )getSystemService( Context.LOCATION_SERVICE );
 		
 		// Initialise the timers with their delegates
-		noLockTimerInstance.registerDelegate( 
-				new ITimerExpiry() 
-				{
-					@Override
-					public void OnTimerExpired() 
-					{
-						log.info( "noLockTimerInstance OnTimerExpired : No lock acquired ");
-					}
-				}
-		);
-
 		lockAquiredTimerInstance.registerDelegate( 
 				new ITimerExpiry() 
 				{
@@ -96,6 +85,7 @@ public class GPSInterfaceService extends Service implements LocationListener
 					public void OnTimerExpired() 
 					{
 						log.info( "lockAquiredTimerInstance OnTimerExpired : Starting polling ");
+						
 						Message.obtain( serviceHandler, TURNONGPS ).sendToTarget();
 					}
 				}
@@ -137,7 +127,7 @@ public class GPSInterfaceService extends Service implements LocationListener
 	/**
 	 * Provide a binder for this service
 	 * @param bindIntent The Intent that was used to bind to this service
-	 * @return The IBinder instance for this service
+	 * @return An IBinder linked to the service's message handler
 	 */
 	public IBinder onBind( Intent bindIntent ) 
 	{
@@ -150,7 +140,7 @@ public class GPSInterfaceService extends Service implements LocationListener
 	 * @param startIntent The intent that was passed to startService
 	 * @param flags Additional data about this start request. Currently either 0, START_FLAG_REDELIVERY, or START_FLAG_RETRY. 
 	 * @param startId A unique integer representing this specific request to start. Use with stopSelfResult(int)
-	 * @return The IBinder instance for this service
+	 * @return Persistence type of service - see documentation
 	 */
 	@Override
 	public int onStartCommand( Intent startIntent, int flags, int startId )
@@ -163,14 +153,14 @@ public class GPSInterfaceService extends Service implements LocationListener
 
 	/**
 	 * Called by the system to notify a Service that it is no longer used and is being removed.
-	 * Send a STOPSERVICE message to the thread
+	 * Send a STOPSERVICE message to the thread. Stop all the timers
 	 */
 	@Override  
 	public void onDestroy() 
 	{  
 		log.info( "onDestroy" );
-		Message.obtain( serviceHandler, STOPSERVICE ).sendToTarget();
 		
+		Message.obtain( serviceHandler, STOPSERVICE ).sendToTarget();
 		GenericTimer.stopAll();
 	}
 
@@ -246,6 +236,11 @@ public class GPSInterfaceService extends Service implements LocationListener
 		}
 	}
 
+	/**
+	 * Called when the provider status changes. This method is called when a provider is unable to fetch a location or if the provider has
+	 *  recently become available after a period of unavailability.
+	 *  No action
+	 */
 	@Override
 	public void onStatusChanged( String provide, int status, Bundle extras ) 
 	{
@@ -291,14 +286,13 @@ public class GPSInterfaceService extends Service implements LocationListener
 	}
 	  
 	/**
-	 * Message handler method to do the work off-loaded by mHandler to
-	 * GPSLoggerServiceThread
+	 * Message handler method to do the work off-loaded by the ServiceHandler to the GPSLoggerServiceThread
 	 * 
 	 * @param msg - received message
 	 */
 	private void serviceHandleMessage( Message msg )
 	{
-		log.info( "handleMessage {}", msg.what );
+		log.info( "serviceHandleMessage {}", msg.what );
 		   
 		switch ( msg.what )
 		{
@@ -331,9 +325,6 @@ public class GPSInterfaceService extends Service implements LocationListener
 					// Record new state
 					gpsStatus.state = TrackingState.Logging;
 
-					// Start the noLockTimerInstance
-					noLockTimerInstance.startTimer( REASONABLE_FIRST_LOCK_TIME );
-					
 					// Broadcast state
 					BroadcastStatusChange();
 				}
@@ -348,7 +339,6 @@ public class GPSInterfaceService extends Service implements LocationListener
 				// Stop asking for status and location updates
 				StopStatusAndLocationUpdates();
 
-				noLockTimerInstance.stopTimer();
 				lockAquiredTimerInstance.stopTimer();
 				lockLostTimerInstance.stopTimer();
 				improveAccuracyTimer.stopTimer();
@@ -376,6 +366,9 @@ public class GPSInterfaceService extends Service implements LocationListener
 		}
 	}
 
+	/**
+	 * Remove all the listeners from the location manager
+	 */
 	private void StopStatusAndLocationUpdates()
 	{
 		gpsLocationManager.removeUpdates( this );
@@ -383,6 +376,10 @@ public class GPSInterfaceService extends Service implements LocationListener
 		gpsLocationManager.removeNmeaListener( nmeaListener );
 	}
 	
+	/**
+	 * Add the required location listeners
+	 * Update the provider state and start the lock lost timer if locked.
+	 */
 	private void StartStatusAndLocationUpdates()
 	{
 		// Ask for status and location updates
@@ -397,7 +394,7 @@ public class GPSInterfaceService extends Service implements LocationListener
 			{
 				if ( lockLostTimerInstance.isTimerRunning() == false )
 				{
-					lockLostTimerInstance.startTimer( LOCK_LOST_FILTER_TIME);
+					lockLostTimerInstance.startTimer( LOCK_LOST_FILTER_TIME );
 				}
 			}
 			else
@@ -451,11 +448,13 @@ public class GPSInterfaceService extends Service implements LocationListener
 						}
 					}
 					
+					// Check if either of these counts have changed
 					if ( ( newNumberOfSatellites != gpsStatus.satellitesInView ) || ( newSatellitesInFix != gpsStatus.satellitesInFix ) )
 					{
 						gpsStatus.satellitesInView = newNumberOfSatellites;
 						gpsStatus.satellitesInFix = newSatellitesInFix;
 						
+						// If there's a fix then stop the locked lost timer and update the state
 						if ( newSatellitesInFix > 0 )
 						{
 							lockLostTimerInstance.stopTimer();
@@ -463,6 +462,7 @@ public class GPSInterfaceService extends Service implements LocationListener
 						}
 						else
 						{
+							// The lock has been lost, but don't notify the user straight away.
 							improveAccuracyTimer.stopTimer();
 							
 							if ( gpsStatus.providerStatus ==  ProviderState.Locked )
@@ -497,8 +497,15 @@ public class GPSInterfaceService extends Service implements LocationListener
 		}
 	};
 
+	/**
+	 * Listener used to receive the NMEA strings.
+	 */
 	private NmeaListener nmeaListener = new GpsStatus.NmeaListener() 
 	{
+		/**
+		 * Called when an NMEA string has been received
+		 * Log the string
+		 */
 		@Override
 		public void onNmeaReceived( long timeStamp, String nmeaBuffer ) 
 		{
@@ -517,33 +524,6 @@ public class GPSInterfaceService extends Service implements LocationListener
 	    sendBroadcast( intent );
 	}
 	
-	private IBinder binder = new ITrackerServiceRemote.Stub()
-	{
-		@Override
-		public int loggingState() throws RemoteException
-		{
-			return gpsStatus.state.ordinal();
-		}
-
-		@Override
-		public TrackingStatus getTrackingStatus() throws RemoteException
-		{
-			return gpsStatus;
-		}
-
-		@Override
-		public void startLogging() throws RemoteException
-		{
-			Message.obtain( serviceHandler, STARTLOGGING ).sendToTarget();
-		}
-
-		@Override
-		public void stopLogging() throws RemoteException
-		{
-			Message.obtain( serviceHandler, STOPLOGGING ).sendToTarget();
-		}
-	};
-
 	//
 	// Private data
 	//
@@ -563,14 +543,16 @@ public class GPSInterfaceService extends Service implements LocationListener
 	/** Cached LocationManager */
 	private LocationManager gpsLocationManager = null;
 	
+	/** Used to force reporting of provider status */
 	private boolean firstReport = true;
 
+	/** Timer used to control how often the GPS is turned on once a lock is acquired */
 	private GenericTimer lockAquiredTimerInstance = new GenericTimer();
 	
-	private GenericTimer noLockTimerInstance = new GenericTimer();
-	
+	/** Timer used to control how long after lock is lost before notifying clients */
 	private GenericTimer lockLostTimerInstance = new GenericTimer();
 	
+	/** Timer used to control how long after an initial lock has been obtained to wait for a better lock. */
 	private GenericTimer improveAccuracyTimer = new GenericTimer();
 	
 	/** Name given to the thread that actually interfaces to the GPS */
@@ -583,29 +565,20 @@ public class GPSInterfaceService extends Service implements LocationListener
 	public static final int TURNONGPS = 4;
 	public static final int REQUESTSTATUS = 5;
 	
+	/** Specify that all GPS changes are required - no filtering on distance moved or time interval*/
 	private static final float GPS_DISTANCE = 0F;
 	private static final long  GPS_INTERVAL = 0l;
 	
+	/** Minimum accuracy in metres */
 	private static final float REQUIRED_ACCURACY = 20F;
 	
-	/*
-	 * How often to ask the GPS for a new lock once a lock has been obtained
-	 */
+	/** How often to ask the GPS for a new lock once a lock has been obtained */
 	private static final long LOCKED_POLL_TIME = 15000;
 	
-	/*
-	 * How long to wait for the first lock
-	 */
-	private static final long REASONABLE_FIRST_LOCK_TIME = 30000;
-	
-	/*
-	 * How long to wait for a subsequent lock after a lock has been acquired
-	 */
+	/** How long to wait for a subsequent lock after a lock has been acquired */
 	private static final long LOCK_LOST_FILTER_TIME = 10000;
 	
-	/*
-	 * How long to extend the time the GPS is turned on in hope of getting a more accurate fix
-	 */
+	/** How long to extend the time the GPS is turned on in hope of getting a more accurate fix */
 	private static final long EXTRA_TIME_AFTER_LOCK = 2000;
 }
 

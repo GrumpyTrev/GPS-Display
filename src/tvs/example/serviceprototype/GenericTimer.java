@@ -61,6 +61,9 @@ public class GenericTimer
 	{
 		theTimerThread.cancel();
 		theTimerThread.purge();
+		
+		// Create a new timer thread as the one just cancelled can no longer be used
+		theTimerThread = new Timer();
 	}
 	
 	private void innerTimerExpired()

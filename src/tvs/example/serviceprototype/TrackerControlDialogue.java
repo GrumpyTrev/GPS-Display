@@ -29,7 +29,16 @@ public class TrackerControlDialogue extends Activity
 		super.onCreate( savedInstanceState );
 		
 		contextForDialogue = this;
-		serviceManager = new TrackerServiceManager();
+		serviceManager = new TrackerServiceManager( 
+				new TrackerServiceManager.IStatusReceiver()
+				{
+					@Override
+					public void onStatusReceived( TrackingStatus receivedStatus, Context theContext ) 
+					{
+						updateDialogueState( receivedStatus.state );
+					}
+				},
+				null );
 		
 	    setVisible( false );
 	}
@@ -39,7 +48,7 @@ public class TrackerControlDialogue extends Activity
 	{
 		super.onResume();
 		
-		serviceManager.startup( this, new Runnable()
+		serviceManager.bindToService( this, new Runnable()
 		{
             @Override
             public void run()
@@ -54,7 +63,7 @@ public class TrackerControlDialogue extends Activity
 	{
 		super.onPause();
 		
-		serviceManager.shutdown( this );
+		serviceManager.unBindFromService( this );
 	}
 
 	@Override
@@ -113,6 +122,8 @@ public class TrackerControlDialogue extends Activity
 		            {
 		            	public void onClick( View senderView )
 		                {
+		            		contextForDialogue.startService( new Intent(  contextForDialogue, GPSInterfaceService.class ) );
+
 		            		serviceManager.startLogging();
 		                    setResult( RESULT_OK, new Intent() );
 		                    finish();
@@ -124,7 +135,10 @@ public class TrackerControlDialogue extends Activity
 		            {
 		            	public void onClick( View senderView )
 		                {
+		            		
 		            		serviceManager.stopLogging();
+		            		contextForDialogue.stopService( new Intent(  contextForDialogue, GPSInterfaceService.class ) );
+
 		                    setResult( RESULT_OK, new Intent() );
 		                    finish();
 		                }	
