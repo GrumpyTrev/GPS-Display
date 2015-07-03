@@ -128,11 +128,14 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 		 String locationString = "";
 		 String accuracyString = "";
 		 String refString = "";
-
+		 String utmString = "";
+		 String altString = "";
+		 
 		 if ( receivedLocation != null )
 		 {
-			 locationString = String.format(  "Lat %f%nLon %f%n",  receivedLocation.getLatitude(),
-					 receivedLocation.getLongitude(), receivedLocation.getAccuracy() );
+			 locationString = String.format(  "Lat %f%nLon %f%n",  receivedLocation.getLatitude(), receivedLocation.getLongitude() );
+			 utmString = String.format( "%n%s", new CoordinateConversion().latLon2UTM( receivedLocation.getLatitude(), receivedLocation.getLongitude() ) );
+			 altString =  String.format( " alt %.0f", receivedLocation.getAltitude() );
 			 
 			 // Convert to GB OS
 			 LatLng receivedLatLong = new LatLng( receivedLocation.getLatitude(), receivedLocation.getLongitude() );
@@ -148,7 +151,7 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 
 		 if ( receivedStatus != null )
 		 {
-			 statusString = String.format(  "Sat view %d fix %d", receivedStatus.satellitesInView, receivedStatus.satellitesInFix );
+			 statusString = String.format(  "view %d fix %d%s", receivedStatus.satellitesInView, receivedStatus.satellitesInFix, altString );
 			 
 			 switch ( receivedStatus.providerStatus )
 			 {
@@ -175,7 +178,7 @@ public class TrackerControlWidgetProvider extends AppWidgetProvider
 		 }
 		 
 		 // Set the text fields on the remote views
-		 remoteView.setTextViewText( R.id.controlButton, String.format( "%s%s", locationString, statusString ) );
+		 remoteView.setTextViewText( R.id.controlButton, String.format( "%s%s%s", locationString, statusString, utmString ) );
 		 remoteView.setTextViewText( R.id.osRefView, refString );
 		 remoteView.setTextViewText( R.id.gpsStatusView, gpsString );
 		 remoteView.setTextViewText( R.id.accuracyView, accuracyString );
